@@ -1,15 +1,11 @@
-from .model import Noise2Map
-from .pipelines import (
+from .noise2map_pipeline import (
     Noise2MapChangeDetectionPipeline,
     Noise2MapPipelineOutput,
     Noise2MapSemanticSegmentationPipeline,
 )
-from .unet_2d_flex import UNet2DModelFlex
 
 __all__ = [
-    "Noise2Map",
     "Noise2MapChangeDetectionPipeline",
     "Noise2MapPipelineOutput",
     "Noise2MapSemanticSegmentationPipeline",
-    "UNet2DModelFlex",
 ]

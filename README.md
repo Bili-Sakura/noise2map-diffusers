@@ -57,6 +57,44 @@ See [HuggingFace](https://huggingface.co/ali97/noise2map) for all pretrained wei
 
 ---
 
+## Diffusers Pipelines
+
+Noise2Map includes Diffusers-style pipelines for single-image semantic segmentation and
+bi-temporal change detection. Inputs can be PIL images, NumPy arrays, or torch tensors;
+the pipelines handle normalization to the training range (set `normalize=False` if your
+inputs are already in `[-1, 1]`). Use `noise_type="gaussian"` to fall back to random
+noise instead of the structured noise used by Noise2Map.
+
+```python
+from diffusers import DDIMScheduler
+from noise2map import (
+    Noise2Map,
+    Noise2MapChangeDetectionPipeline,
+    Noise2MapSemanticSegmentationPipeline,
+)
+
+model = Noise2Map(in_channels=3, out_channels=2, pretrained="aid_10k")
+pipe = Noise2MapSemanticSegmentationPipeline(model=model, scheduler=DDIMScheduler())
+result = pipe(image)
+mask = result.predictions
+```
+
+```python
+model = Noise2Map(in_channels=6, out_channels=2, pretrained="aid_10k")
+pipe = Noise2MapChangeDetectionPipeline(model=model, scheduler=DDIMScheduler())
+result = pipe(pre_image=pre, post_image=post)
+change_mask = result.predictions
+```
+
+**Implicit inference settings**
+
+- Single-step inference (`num_inference_steps = 1`) at `timestep = scheduler.config.num_train_timesteps - 1`
+- `normalize=True` (expects inputs in `[-1, 1]`, `[0, 1]`, or `[0, 255]`)
+- `noise_type="structured"` (uses self-noise for SS or swapped pairs for CD)
+- `output_type="torch"`, `return_dict=True`
+
+---
+
 ## Datasets
 
 Download datasets and place them under `data/`:
