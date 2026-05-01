@@ -61,8 +61,9 @@ See [HuggingFace](https://huggingface.co/ali97/noise2map) for all pretrained wei
 
 Noise2Map includes Diffusers-style pipelines for single-image semantic segmentation and
 bi-temporal change detection. Inputs can be PIL images, NumPy arrays, or torch tensors;
-the pipelines handle normalisation to the training range (set `normalize=False` if your
-inputs are already in `[-1, 1]`).
+the pipelines handle normalization to the training range (set `normalize=False` if your
+inputs are already in `[-1, 1]`). Use `noise_type="gaussian"` to fall back to random
+noise instead of the structured noise used by Noise2Map.
 
 ```python
 from diffusers import DDIMScheduler

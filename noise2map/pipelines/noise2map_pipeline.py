@@ -57,16 +57,23 @@ def _ensure_batch_channels(
 
 def _normalize_tensor(tensor: torch.Tensor) -> torch.Tensor:
     tensor = tensor.float()
-    min_val = tensor.min()
-    max_val = tensor.max()
-    if min_val >= -1.0 and max_val <= 1.0:
-        if min_val >= 0.0:
-            return tensor * 2.0 - 1.0
-        return tensor
-    if min_val >= 0.0 and max_val <= 255.0:
-        tensor = tensor / 255.0
-        return tensor * 2.0 - 1.0
-    raise ValueError("Expected inputs in [-1, 1], [0, 1], or [0, 255] range.")
+    if tensor.ndim == 4:
+        min_val = tensor.amin(dim=(1, 2, 3), keepdim=True)
+        max_val = tensor.amax(dim=(1, 2, 3), keepdim=True)
+    else:
+        min_val = tensor.min()
+        max_val = tensor.max()
+
+    in_minus_one_one = (min_val >= -1.0) & (max_val <= 1.0)
+    in_zero_one = (min_val >= 0.0) & (max_val <= 1.0)
+    in_zero_255 = (min_val >= 0.0) & (max_val <= 255.0)
+
+    if not torch.all(in_minus_one_one | in_zero_255):
+        raise ValueError("Expected inputs in [-1, 1], [0, 1], or [0, 255] range.")
+
+    tensor = torch.where(in_zero_one, tensor * 2.0 - 1.0, tensor)
+    tensor = torch.where(~in_minus_one_one & in_zero_255, tensor / 255.0 * 2.0 - 1.0, tensor)
+    return tensor
 
 
 def _prepare_images(
@@ -125,6 +132,7 @@ class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
         *,
         timestep: Optional[int] = None,
         normalize: bool = True,
+        noise_type: str = "structured",
         output_type: str = "torch",
         return_dict: bool = True,
     ) -> Noise2MapPipelineOutput | Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]]:
@@ -142,7 +150,14 @@ class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
         )
         t = self._get_inference_timestep(timestep)
         timesteps = torch.full((image_tensor.shape[0],), t, device=device, dtype=torch.long)
-        x_noisy = self.scheduler.add_noise(image_tensor, image_tensor, timesteps)
+        if noise_type == "structured":
+            noise_source = image_tensor
+        elif noise_type == "gaussian":
+            noise_source = torch.randn_like(image_tensor)
+        else:
+            raise ValueError("noise_type must be 'structured' or 'gaussian'.")
+
+        x_noisy = self.scheduler.add_noise(image_tensor, noise_source, timesteps)
 
         logits = self.model(x_noisy, timesteps)
         predictions = torch.argmax(logits, dim=1)
@@ -169,6 +184,7 @@ class Noise2MapChangeDetectionPipeline(Noise2MapBasePipeline):
         *,
         timestep: Optional[int] = None,
         normalize: bool = True,
+        noise_type: str = "structured",
         output_type: str = "torch",
         return_dict: bool = True,
     ) -> Noise2MapPipelineOutput | Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]]:
@@ -198,10 +214,15 @@ class Noise2MapChangeDetectionPipeline(Noise2MapBasePipeline):
             )
 
         x = torch.cat([pre, post], dim=1)
-        swapped_pair = torch.cat([post, pre], dim=1)
+        if noise_type == "structured":
+            noise_source = torch.cat([post, pre], dim=1)
+        elif noise_type == "gaussian":
+            noise_source = torch.randn_like(x)
+        else:
+            raise ValueError("noise_type must be 'structured' or 'gaussian'.")
         t = self._get_inference_timestep(timestep)
         timesteps = torch.full((x.shape[0],), t, device=device, dtype=torch.long)
-        x_noisy = self.scheduler.add_noise(x, swapped_pair, timesteps)
+        x_noisy = self.scheduler.add_noise(x, noise_source, timesteps)
 
         logits = self.model(x_noisy, timesteps)
         predictions = torch.argmax(logits, dim=1)
