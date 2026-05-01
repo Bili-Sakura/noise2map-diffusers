@@ -59,10 +59,12 @@ def _normalize_tensor(tensor: torch.Tensor) -> torch.Tensor:
     tensor = tensor.float()
     min_val = tensor.min()
     max_val = tensor.max()
+    if min_val >= -1.0 and max_val <= 1.0:
+        if min_val >= 0.0:
+            return tensor * 2.0 - 1.0
+        return tensor
     if max_val > 1.0:
         tensor = tensor / 255.0
-        return tensor * 2.0 - 1.0
-    if min_val >= 0.0 and max_val <= 1.0:
         return tensor * 2.0 - 1.0
     return tensor
 
@@ -130,8 +132,8 @@ class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
         image_tensor = _prepare_images(image, expected_channels=3, device=device, dtype=dtype, name="image")
         t = self._get_inference_timestep(timestep)
         timesteps = torch.full((image_tensor.shape[0],), t, device=device, dtype=torch.long)
-        self_noise = image_tensor
-        x_noisy = self.scheduler.add_noise(image_tensor, self_noise, timesteps)
+        image_as_noise = image_tensor
+        x_noisy = self.scheduler.add_noise(image_tensor, image_as_noise, timesteps)
 
         logits = self.model(x_noisy, timesteps)
         predictions = torch.argmax(logits, dim=1)
@@ -172,10 +174,10 @@ class Noise2MapChangeDetectionPipeline(Noise2MapBasePipeline):
             )
 
         x = torch.cat([pre, post], dim=1)
-        reversed_pair = torch.cat([post, pre], dim=1)
+        noise_pair = torch.cat([post, pre], dim=1)
         t = self._get_inference_timestep(timestep)
         timesteps = torch.full((x.shape[0],), t, device=device, dtype=torch.long)
-        x_noisy = self.scheduler.add_noise(x, reversed_pair, timesteps)
+        x_noisy = self.scheduler.add_noise(x, noise_pair, timesteps)
 
         logits = self.model(x_noisy, timesteps)
         predictions = torch.argmax(logits, dim=1)
