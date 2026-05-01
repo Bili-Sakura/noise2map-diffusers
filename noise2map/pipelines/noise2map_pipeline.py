@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -23,7 +23,7 @@ class Noise2MapPipelineOutput(BaseOutput):
     predictions: Union[torch.Tensor, np.ndarray]
 
 
-def _as_list(images: Union[ImageInput, Sequence[ImageInput]]) -> list[ImageInput]:
+def _as_list(images: Union[ImageInput, Sequence[ImageInput]]) -> List[ImageInput]:
     if isinstance(images, (list, tuple)):
         return list(images)
     return [images]
@@ -68,7 +68,7 @@ def _normalize_tensor(tensor: torch.Tensor) -> torch.Tensor:
     in_zero_one = (min_val >= 0.0) & (max_val <= 1.0)
     in_zero_255 = (min_val >= 0.0) & (max_val <= 255.0)
 
-    if not torch.all(in_minus_one_one | in_zero_255):
+    if not torch.all(in_minus_one_one | in_zero_one | in_zero_255):
         raise ValueError("Expected inputs in [-1, 1], [0, 1], or [0, 255] range.")
 
     tensor = torch.where(in_zero_one, tensor * 2.0 - 1.0, tensor)
@@ -135,7 +135,10 @@ class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
         noise_type: str = "structured",
         output_type: str = "torch",
         return_dict: bool = True,
-    ) -> Noise2MapPipelineOutput | Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]]:
+    ) -> Union[
+        Noise2MapPipelineOutput,
+        Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]],
+    ]:
         self.model.eval()
         device = self._execution_device
         dtype = self._get_dtype()
@@ -187,7 +190,10 @@ class Noise2MapChangeDetectionPipeline(Noise2MapBasePipeline):
         noise_type: str = "structured",
         output_type: str = "torch",
         return_dict: bool = True,
-    ) -> Noise2MapPipelineOutput | Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]]:
+    ) -> Union[
+        Noise2MapPipelineOutput,
+        Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]],
+    ]:
         self.model.eval()
         device = self._execution_device
         dtype = self._get_dtype()
