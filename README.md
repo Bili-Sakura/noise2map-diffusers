@@ -67,7 +67,11 @@ noise instead of the structured noise used by Noise2Map.
 
 ```python
 from diffusers import DDIMScheduler
-from noise2map import Noise2Map, Noise2MapSemanticSegmentationPipeline
+from noise2map import (
+    Noise2Map,
+    Noise2MapChangeDetectionPipeline,
+    Noise2MapSemanticSegmentationPipeline,
+)
 
 model = Noise2Map(in_channels=3, out_channels=2, pretrained="aid_10k")
 pipe = Noise2MapSemanticSegmentationPipeline(model=model, scheduler=DDIMScheduler())
@@ -75,8 +79,19 @@ result = pipe(image)
 mask = result.predictions
 ```
 
-For change detection, use `Noise2MapChangeDetectionPipeline` and pass both `pre_image`
-and `post_image`.
+```python
+model = Noise2Map(in_channels=6, out_channels=2, pretrained="aid_10k")
+pipe = Noise2MapChangeDetectionPipeline(model=model, scheduler=DDIMScheduler())
+result = pipe(pre_image=pre, post_image=post)
+change_mask = result.predictions
+```
+
+**Implicit inference settings**
+
+- Single-step inference (`num_inference_steps = 1`) at `timestep = scheduler.config.num_train_timesteps - 1`
+- `normalize=True` (expects inputs in `[-1, 1]`, `[0, 1]`, or `[0, 255]`)
+- `noise_type="structured"` (uses self-noise for SS or swapped pairs for CD)
+- `output_type="torch"`, `return_dict=True`
 
 ---
 

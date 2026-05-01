@@ -123,7 +123,11 @@ class Noise2MapBasePipeline(DiffusionPipeline):
 
 
 class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
-    """Diffusers-style pipeline for Noise2Map semantic segmentation."""
+    """Diffusers-style pipeline for Noise2Map semantic segmentation.
+
+    This pipeline performs single-step inference at the final diffusion timestep
+    by default (``timestep = scheduler.config.num_train_timesteps - 1``).
+    """
 
     @torch.no_grad()
     def __call__(
@@ -139,6 +143,25 @@ class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
         Noise2MapPipelineOutput,
         Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]],
     ]:
+        """Run semantic segmentation inference.
+
+        Parameters
+        ----------
+        image : ImageInput or sequence
+            Input image(s) as PIL, NumPy array, or torch tensor.
+        timestep : int, optional
+            Diffusion timestep to use. Defaults to the final training step.
+        normalize : bool, default True
+            Normalize inputs from [0, 1] or [0, 255] to [-1, 1]. Disable if
+            inputs are already in [-1, 1].
+        noise_type : {"structured", "gaussian"}, default "structured"
+            Structured uses the image itself as noise (Noise2Map setting).
+            Gaussian uses random normal noise.
+        output_type : {"torch", "numpy"}, default "torch"
+            Output type for logits and predictions.
+        return_dict : bool, default True
+            Whether to return a Noise2MapPipelineOutput.
+        """
         self.model.eval()
         device = self._execution_device
         dtype = self._get_dtype()
@@ -177,7 +200,11 @@ class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
 
 
 class Noise2MapChangeDetectionPipeline(Noise2MapBasePipeline):
-    """Diffusers-style pipeline for Noise2Map change detection."""
+    """Diffusers-style pipeline for Noise2Map change detection.
+
+    This pipeline performs single-step inference at the final diffusion timestep
+    by default (``timestep = scheduler.config.num_train_timesteps - 1``).
+    """
 
     @torch.no_grad()
     def __call__(
@@ -194,6 +221,27 @@ class Noise2MapChangeDetectionPipeline(Noise2MapBasePipeline):
         Noise2MapPipelineOutput,
         Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]],
     ]:
+        """Run change detection inference.
+
+        Parameters
+        ----------
+        pre_image : ImageInput or sequence
+            Pre-event image(s) as PIL, NumPy array, or torch tensor.
+        post_image : ImageInput or sequence
+            Post-event image(s) as PIL, NumPy array, or torch tensor.
+        timestep : int, optional
+            Diffusion timestep to use. Defaults to the final training step.
+        normalize : bool, default True
+            Normalize inputs from [0, 1] or [0, 255] to [-1, 1]. Disable if
+            inputs are already in [-1, 1].
+        noise_type : {"structured", "gaussian"}, default "structured"
+            Structured uses the swapped image pair as noise (Noise2Map setting).
+            Gaussian uses random normal noise.
+        output_type : {"torch", "numpy"}, default "torch"
+            Output type for logits and predictions.
+        return_dict : bool, default True
+            Whether to return a Noise2MapPipelineOutput.
+        """
         self.model.eval()
         device = self._execution_device
         dtype = self._get_dtype()
