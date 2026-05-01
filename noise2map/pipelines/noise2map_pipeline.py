@@ -75,6 +75,7 @@ def _prepare_images(
     device: torch.device,
     dtype: torch.dtype,
     name: str,
+    normalize: bool,
 ) -> torch.Tensor:
     tensors = []
     for image in _as_list(images):
@@ -87,7 +88,8 @@ def _prepare_images(
                 f"{name} must be a torch.Tensor, numpy array, PIL image, or a list of those."
             )
         tensor = _ensure_batch_channels(tensor, expected_channels, name)
-        tensor = _normalize_tensor(tensor)
+        if normalize:
+            tensor = _normalize_tensor(tensor)
         tensors.append(tensor)
     batch = torch.cat(tensors, dim=0)
     return batch.to(device=device, dtype=dtype)
@@ -122,6 +124,7 @@ class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
         image: Union[ImageInput, Sequence[ImageInput]],
         *,
         timestep: Optional[int] = None,
+        normalize: bool = True,
         output_type: str = "torch",
         return_dict: bool = True,
     ) -> Noise2MapPipelineOutput | Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]]:
@@ -129,11 +132,17 @@ class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
         device = self._execution_device
         dtype = self._get_dtype()
 
-        image_tensor = _prepare_images(image, expected_channels=3, device=device, dtype=dtype, name="image")
+        image_tensor = _prepare_images(
+            image,
+            expected_channels=3,
+            device=device,
+            dtype=dtype,
+            name="image",
+            normalize=normalize,
+        )
         t = self._get_inference_timestep(timestep)
         timesteps = torch.full((image_tensor.shape[0],), t, device=device, dtype=torch.long)
-        image_as_noise = image_tensor
-        x_noisy = self.scheduler.add_noise(image_tensor, image_as_noise, timesteps)
+        x_noisy = self.scheduler.add_noise(image_tensor, image_tensor, timesteps)
 
         logits = self.model(x_noisy, timesteps)
         predictions = torch.argmax(logits, dim=1)
@@ -159,6 +168,7 @@ class Noise2MapChangeDetectionPipeline(Noise2MapBasePipeline):
         post_image: Union[ImageInput, Sequence[ImageInput]],
         *,
         timestep: Optional[int] = None,
+        normalize: bool = True,
         output_type: str = "torch",
         return_dict: bool = True,
     ) -> Noise2MapPipelineOutput | Tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]]:
@@ -166,18 +176,32 @@ class Noise2MapChangeDetectionPipeline(Noise2MapBasePipeline):
         device = self._execution_device
         dtype = self._get_dtype()
 
-        pre = _prepare_images(pre_image, expected_channels=3, device=device, dtype=dtype, name="pre_image")
-        post = _prepare_images(post_image, expected_channels=3, device=device, dtype=dtype, name="post_image")
+        pre = _prepare_images(
+            pre_image,
+            expected_channels=3,
+            device=device,
+            dtype=dtype,
+            name="pre_image",
+            normalize=normalize,
+        )
+        post = _prepare_images(
+            post_image,
+            expected_channels=3,
+            device=device,
+            dtype=dtype,
+            name="post_image",
+            normalize=normalize,
+        )
         if pre.shape != post.shape:
             raise ValueError(
                 f"pre_image and post_image must have the same shape, got {tuple(pre.shape)} and {tuple(post.shape)}."
             )
 
         x = torch.cat([pre, post], dim=1)
-        noise_source = torch.cat([post, pre], dim=1)
+        swapped_pair = torch.cat([post, pre], dim=1)
         t = self._get_inference_timestep(timestep)
         timesteps = torch.full((x.shape[0],), t, device=device, dtype=torch.long)
-        x_noisy = self.scheduler.add_noise(x, noise_source, timesteps)
+        x_noisy = self.scheduler.add_noise(x, swapped_pair, timesteps)
 
         logits = self.model(x_noisy, timesteps)
         predictions = torch.argmax(logits, dim=1)
