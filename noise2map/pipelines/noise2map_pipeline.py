@@ -127,7 +127,8 @@ class Noise2MapSemanticSegmentationPipeline(Noise2MapBasePipeline):
         image_tensor = _prepare_images(image, expected_channels=3, device=device, dtype=dtype, name="image")
         t = self._get_inference_timestep(timestep)
         timesteps = torch.full((image_tensor.shape[0],), t, device=device, dtype=torch.long)
-        x_noisy = self.scheduler.add_noise(image_tensor, image_tensor, timesteps)
+        structured_noise = image_tensor
+        x_noisy = self.scheduler.add_noise(image_tensor, structured_noise, timesteps)
 
         logits = self.model(x_noisy, timesteps)
         predictions = torch.argmax(logits, dim=1)
@@ -168,10 +169,10 @@ class Noise2MapChangeDetectionPipeline(Noise2MapBasePipeline):
             )
 
         x = torch.cat([pre, post], dim=1)
-        noise = torch.cat([post, pre], dim=1)
+        structured_noise = torch.cat([post, pre], dim=1)
         t = self._get_inference_timestep(timestep)
         timesteps = torch.full((x.shape[0],), t, device=device, dtype=torch.long)
-        x_noisy = self.scheduler.add_noise(x, noise, timesteps)
+        x_noisy = self.scheduler.add_noise(x, structured_noise, timesteps)
 
         logits = self.model(x_noisy, timesteps)
         predictions = torch.argmax(logits, dim=1)
